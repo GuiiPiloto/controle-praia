@@ -130,7 +130,7 @@ export default function App() {
               <Umbrella size={14} />
               <span>Verão 2026</span>
             </div>
-            <h1 className="text-4xl font-black tracking-tight italic">BEACH.DASH</h1>
+            <h1 className="text-4xl font-black tracking-tight italic">Controle Financeiro Praia</h1>
           </motion.div>
 
           <form onSubmit={addPessoa} className="w-full md:w-auto flex bg-zinc-900/50 p-1.5 border border-zinc-800 rounded-2xl backdrop-blur-md">
