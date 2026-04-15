@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from "react";
 import { initializeApp } from "firebase/app";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
 import {
   getFirestore,
   collection,
@@ -36,9 +37,12 @@ const firebaseConfig = {
   appId: "1:1007327676976:web:57d3f0ec7c496a0a0f3bf5",
 };
 
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
 
 // 💰 CONFIGURAÇÃO FINANCEIRA
@@ -54,6 +58,13 @@ export default function App() {
   const [pessoas, setPessoas] = useState([]);
   const [nome, setNome] = useState("");
   const [isUploading, setIsUploading] = useState(null);
+  const [modal, setModal] = useState({ open: false, pessoaId: null });
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pessoas"), (snapshot) => {
@@ -61,7 +72,17 @@ export default function App() {
         id: doc.id,
         ...doc.data(),
       }));
-      setPessoas(lista.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds));
+      // Fallback: se createdAt não existir, mantém ordem de chegada
+      setPessoas(
+        lista.sort((a, b) => {
+          if (a.createdAt?.seconds && b.createdAt?.seconds) {
+            return b.createdAt.seconds - a.createdAt.seconds;
+          }
+          if (a.createdAt?.seconds) return -1;
+          if (b.createdAt?.seconds) return 1;
+          return 0;
+        })
+      );
     });
     return () => unsub();
   }, []);
@@ -92,6 +113,7 @@ export default function App() {
 
   const addPessoa = async (e) => {
     e.preventDefault();
+    if (!user) return alert('Faça login para adicionar.');
     if (!nome.trim()) return;
     await addDoc(collection(db, "pessoas"), {
       nome,
@@ -105,6 +127,7 @@ export default function App() {
   };
 
   const uploadComprovante = async (pessoa, file) => {
+    if (!user) return alert('Faça login para modificar.');
     if (!file) return;
     // Validação: tipos permitidos e tamanho (até 5MB)
     const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
@@ -130,6 +153,26 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 pb-20 font-sans selection:bg-indigo-500/30">
+      {/* BOTÃO DE LOGIN DISCRETO */}
+      <div className="fixed top-2 right-4 z-50">
+        {!user ? (
+          <button
+            onClick={() => signInWithPopup(auth, provider)}
+            title="Área restrita"
+            className="opacity-30 hover:opacity-80 text-xs px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-300"
+          >
+            Entrar
+          </button>
+        ) : (
+          <button
+            onClick={() => signOut(auth)}
+            title={user.email}
+            className="opacity-30 hover:opacity-80 text-xs px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-emerald-400"
+          >
+            Sair
+          </button>
+        )}
+      </div>
       {/* GLOW DE FUNDO */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full" />
@@ -177,17 +220,38 @@ export default function App() {
                 uploadComprovante={uploadComprovante}
                 db={db}
                 setIsUploading={setIsUploading}
+                onRequestDelete={() => setModal({ open: true, pessoaId: p.id })}
               />
             ))}
           </AnimatePresence>
+          {/* MODAL DE CONFIRMAÇÃO */}
+          {modal.open && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+              <div className="bg-zinc-900 p-8 rounded-2xl shadow-2xl border border-zinc-700 flex flex-col items-center gap-6 min-w-[300px]">
+                <div className="text-lg font-bold text-zinc-100">Tem certeza que deseja remover este participante?</div>
+                <div className="flex gap-4 mt-2">
+                  <button
+                    className="px-6 py-2 rounded-lg bg-rose-600 text-white font-bold hover:bg-rose-700 transition"
+                    onClick={async () => {
+                      await deleteDoc(doc(db, "pessoas", modal.pessoaId));
+                      setModal({ open: false, pessoaId: null });
+                    }}
+                  >Remover</button>
+                  <button
+                    className="px-6 py-2 rounded-lg bg-zinc-700 text-zinc-200 font-bold hover:bg-zinc-600 transition"
+                    onClick={() => setModal({ open: false, pessoaId: null })}
+                  >Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 // --- COMPONENTE PESSOA CARD ---
-import { memo, useRef } from "react";
-function PessoaCard({ pessoa, isUploading, uploadComprovante, db }) {
+function PessoaCard({ pessoa, isUploading, uploadComprovante, db, onRequestDelete }) {
   const { id, nome, tipo, p1, p2, comprovantes } = pessoa;
   // Debounce para edição de nome
   const debounceRef = useRef();
@@ -211,11 +275,10 @@ function PessoaCard({ pessoa, isUploading, uploadComprovante, db }) {
     }
     updateDoc(doc(db, "pessoas", id), { p2: !p2 });
   }, [db, id, p2, p1]);
+  // Chama o modal de confirmação do App
   const handleDelete = useCallback(() => {
-    if (window.confirm('Tem certeza que deseja remover este participante?')) {
-      deleteDoc(doc(db, "pessoas", id));
-    }
-  }, [db, id]);
+    if (onRequestDelete) onRequestDelete();
+  }, [onRequestDelete]);
   return (
     <motion.div
       layout
@@ -261,6 +324,7 @@ function PessoaCard({ pessoa, isUploading, uploadComprovante, db }) {
           <button 
             onClick={handleDelete}
             className="p-2.5 rounded-xl text-zinc-600 hover:text-rose-500 hover:bg-rose-500/10 transition-all ml-auto"
+            type="button"
           >
             <Trash2 size={18} />
           </button>
