@@ -55,6 +55,14 @@ const CONFIG = {
 };
 
 export default function App() {
+    // Função isolada para login Google
+    const handleLogin = useCallback(async () => {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        alert('Erro ao fazer login: ' + (e?.message || e));
+      }
+    }, []);
   const [pessoas, setPessoas] = useState([]);
   const [nome, setNome] = useState("");
   const [isUploading, setIsUploading] = useState(null);
@@ -157,7 +165,7 @@ export default function App() {
       <div className="fixed top-2 right-4 z-50">
         {!user ? (
           <button
-            onClick={() => signInWithPopup(auth, provider)}
+            onClick={handleLogin}
             title="Área restrita"
             className="opacity-30 hover:opacity-80 text-xs px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-300"
           >
