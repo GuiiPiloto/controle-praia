@@ -29,12 +29,12 @@ import {
 
 // 🔥 CONFIGURAÇÃO FIREBASE
 const firebaseConfig = {
-  apiKey: "AIzaSy...", // Mantenha sua chave real aqui
-  authDomain: "controle-praia.firebaseapp.com",
-  projectId: "controle-praia",
-  storageBucket: "controle-praia.firebasestorage.app",
-  messagingSenderId: "1007327676976",
-  appId: "1:1007327676976:web:57d3f0ec7c496a0a0f3bf5",
+  apiKey: "AIzaSyDlKU2D66-etmOHtlefViHvx4whRVdRiEE",
+  authDomain: "controle-praia-2026.firebaseapp.com",
+  projectId: "controle-praia-2026",
+  storageBucket: "controle-praia-2026.appspot.com",
+  messagingSenderId: "744354320192",
+  appId: "1:744354320192:web:da72b446d481158ce834a5"
 };
 
 

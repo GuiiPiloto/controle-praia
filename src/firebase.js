@@ -1,11 +1,12 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDlKU2D66-etmOHtlefViHvx4whRVdRiEE",
   authDomain: "controle-praia-2026.firebaseapp.com",
   projectId: "controle-praia-2026",
-  storageBucket: "controle-praia-2026.firebasestorage.app",
+  storageBucket: "controle-praia-2026.appspot.com",
   messagingSenderId: "744354320192",
   appId: "1:744354320192:web:da72b446d481158ce834a5"
 };
