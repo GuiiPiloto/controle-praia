@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Receipt,
   Plus,
+  Check
 } from "lucide-react";
 
 // 🔥 CONFIGURAÇÃO FIREBASE
@@ -54,6 +55,20 @@ const CONFIG = {
   parcelas: 2,
 };
 
+const enviarWhats = async (mensagem) => {
+  try {
+    await fetch("http://localhost:5173/enviar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mensagem }),
+    });
+  } catch (err) {
+    console.log("Erro ao enviar Whats:", err);
+  }
+};
+
 export default function App() {
     // Função isolada para login Google
     const handleLogin = useCallback(async () => {
@@ -76,18 +91,25 @@ export default function App() {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pessoas"), (snapshot) => {
-      const lista = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const lista = snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+    return {
+      id: doc.id,
+      nome: data.nome || "Sem nome",
+      tipo: data.tipo || "avista",
+      p1: data.p1 ?? false,
+      p2: data.p2 ?? false,
+      comprovantes: data.comprovantes || [],
+      createdAt: data.createdAt || null,
+    };
+});
       // Fallback: se createdAt não existir, mantém ordem de chegada
       setPessoas(
         lista.sort((a, b) => {
           if (a.createdAt?.seconds && b.createdAt?.seconds) {
             return b.createdAt.seconds - a.createdAt.seconds;
           }
-          if (a.createdAt?.seconds) return -1;
-          if (b.createdAt?.seconds) return 1;
           return 0;
         })
       );
@@ -100,16 +122,29 @@ export default function App() {
     let totalEsperado = 0;
     let totalRecebido = 0;
 
-    pessoas.forEach((p) => {
-      if (p.tipo === "avista") {
-        totalEsperado += 1;
-        if (p.p1) { pagas++; totalRecebido += CONFIG.valorPorPessoa; }
-      } else {
-        totalEsperado += CONFIG.parcelas;
-        if (p.p1) { pagas++; totalRecebido += CONFIG.parcela; }
-        if (p.p2) { pagas++; totalRecebido += CONFIG.parcela; }
-      }
-    });
+    pessoas.forEach((p = {}) => {
+  if ((p.tipo || "avista") === "avista") {
+    totalEsperado += 1;
+
+    if (p.p1) {
+      pagas++;
+      totalRecebido += CONFIG.valorPorPessoa;
+    }
+
+  } else {
+    totalEsperado += CONFIG.parcelas;
+
+    if (p.p1) {
+      pagas++;
+      totalRecebido += CONFIG.parcela;
+    }
+
+    if (p.p2) {
+      pagas++;
+      totalRecebido += CONFIG.parcela;
+    }
+  }
+});
 
     return {
       totalRecebido,
@@ -260,7 +295,14 @@ export default function App() {
 }
 // --- COMPONENTE PESSOA CARD ---
 function PessoaCard({ pessoa, isUploading, uploadComprovante, db, onRequestDelete }) {
-  const { id, nome, tipo, p1, p2, comprovantes } = pessoa;
+  const {
+  id,
+  nome = "Sem nome",
+  tipo = "avista",
+  p1 = false,
+  p2 = false,
+  comprovantes = []
+} = pessoa || {};
   // Debounce para edição de nome
   const debounceRef = useRef();
   const handleNomeChange = useCallback((e) => {
@@ -271,18 +313,40 @@ function PessoaCard({ pessoa, isUploading, uploadComprovante, db, onRequestDelet
     }, 500);
   }, [db, id]);
   const handleTipo = useCallback((novoTipo) => {
-    updateDoc(doc(db, "pessoas", id), { tipo: novoTipo });
+    updateDoc(doc(db, "pessoas", id), {
+      tipo: novoTipo,
+      p1: false,
+      p2: false,
+    });
   }, [db, id]);
-  const handleP1 = useCallback(() => {
-    updateDoc(doc(db, "pessoas", id), { p1: !p1 });
+  const handleP1 = useCallback(async () => {
+    const novoValor = !p1;
+
+    await updateDoc(doc(db, "pessoas", id), { p1: novoValor });
+
+    if (novoValor) {
+    if (tipo === "avista") {
+      enviarWhats(`💸 *${nome}* quitou tudo à vista!`);
+    } else {
+      enviarWhats(`💰 *${nome}* pagou a *1ª parcela*!`);
+      }
+    }
   }, [db, id, p1]);
-  const handleP2 = useCallback(() => {
+
+  const handleP2 = useCallback(async () => {
     if (!p1) {
-      alert('Marque a 1ª parcela antes de marcar a 2ª.');
+      alert("Marque a 1ª parcela primeiro");
       return;
     }
-    updateDoc(doc(db, "pessoas", id), { p2: !p2 });
-  }, [db, id, p2, p1]);
+    const novoValor = !p2;
+
+    await updateDoc(doc(db, "pessoas", id), { p2: novoValor });
+
+    if (novoValor) {
+      enviarWhats(`💰 *${nome}* pagou a *2ª parcela*!`);
+    }
+  }, [db, id, p2, p1, nome]);
+
   // Chama o modal de confirmação do App
   const handleDelete = useCallback(() => {
     if (onRequestDelete) onRequestDelete();
