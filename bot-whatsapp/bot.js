@@ -37,9 +37,11 @@ async function startBot() {
     }
   });
 
-  app.listen(5173, () => {
-    console.log("🚀 API rodando em http://localhost:5173");
-  });
+    const PORT = process.env.PORT || 3000;
+
+    app.listen(PORT, () => {
+        console.log("🚀 API rodando");
+    });
 
   sock.ev.on("connection.update", (update) => {
     const { connection, qr } = update;
