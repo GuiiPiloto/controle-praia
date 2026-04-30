@@ -8,16 +8,6 @@ import qrcode from "qrcode-terminal";
 
 const GRUPO_ID = "120363405830918592@g.us";
 
-async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState("auth");
-  const { version } = await fetchLatestBaileysVersion();
-
-  const sock = makeWASocket({
-    auth: state,
-    version,
-    browser: ["Windows", "Chrome", "120.0.0"],
-  });
-
   const app = express();
   app.use(express.json());
 
@@ -43,6 +33,16 @@ async function startBot() {
         console.log("🚀 API rodando");
     });
 
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState("auth");
+  const { version } = await fetchLatestBaileysVersion();
+
+  const sock = makeWASocket({
+    auth: state,
+    version,
+    browser: ["Windows", "Chrome", "120.0.0"],
+  });
+
   sock.ev.on("connection.update", (update) => {
     const { connection, qr } = update;
 
@@ -56,12 +56,15 @@ async function startBot() {
     }
 
     if (connection === "close") {
-      console.log("❌ Caiu... reconectando");
-      startBot();
+      console.log("⚠️ Conexão fechada (Baileys vai reconectar sozinho)");
     }
   });
 
   sock.ev.on("creds.update", saveCreds);
+   
+  global.sock = sock;
 }
+
+
 
 startBot();
