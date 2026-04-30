@@ -65,6 +65,4 @@ async function startBot() {
   global.sock = sock;
 }
 
-
-
 startBot();
