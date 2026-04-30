@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from "react";
+
+import React, { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "firebase/auth";
 import {
   getFirestore,
   collection,
@@ -12,23 +14,176 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  FileText,
-  Upload,
-  ExternalLink,
-  TrendingUp,
-  Wallet,
-  Umbrella,
-  UserPlus,
-  Trash2,
-  CheckCircle2,
-  Receipt,
-  Plus,
-  Check
-} from "lucide-react";
 
-// 🔥 CONFIGURAÇÃO FIREBASE
+function getRandom(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+
+
+
+function Bubble({ start, end, size, foto, onClick, duration, delay }) {
+  // Movimento: atravessa a tela de start para end, cobrindo toda a área
+  return (
+    <motion.div
+      className="absolute flex items-center justify-center"
+      style={{
+        left: `${start.x}vw`,
+        top: `${start.y}vh`,
+        width: size,
+        height: size,
+        zIndex: 1,
+        pointerEvents: 'auto',
+        cursor: 'pointer',
+      }}
+      initial={{ scale: 0.95, opacity: 0.92 }}
+      animate={{
+        left: [`${start.x}vw`, `${end.x}vw`, `${start.x}vw`],
+        top: [`${start.y}vh`, `${end.y}vh`, `${start.y}vh`],
+        opacity: [0.92, 1, 0.92],
+        rotate: [0, 360, 0],
+      }}
+      transition={{
+        duration,
+        delay,
+        repeat: Infinity,
+        repeatType: 'loop',
+        ease: 'easeInOut',
+      }}
+      onClick={onClick}
+    >
+      <div className="relative w-full h-full flex items-center justify-center">
+        <img
+          src="/sol.png"
+          alt="Sol"
+          className="w-full h-full object-contain drop-shadow-2xl"
+          draggable={false}
+          style={{ filter: 'drop-shadow(0 0 32px #facc15cc) brightness(1.1)' }}
+        />
+        {foto && (
+          <img
+            src={foto}
+            alt="Foto"
+            className="absolute left-1/2 top-1/2 rounded-full border-4 border-yellow-200 shadow-xl"
+            style={{
+              width: size * 0.48,
+              height: size * 0.48,
+              transform: 'translate(-50%, -50%)',
+              objectFit: 'cover',
+              background: '#fff8',
+            }}
+            draggable={false}
+          />
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+
+
+
+function AnimatedBeachBackground({ pessoas }) {
+  // Sempre 4 bolhas
+  const BUBBLE_COUNT = 4;
+  // Para feedback de clique
+  const [sentou, setSentou] = React.useState(false);
+  const [sentouPos, setSentouPos] = React.useState({ x: 0, y: 0 });
+
+  // Gera array de bolhas com trajetórias aleatórias e fotos das pessoas (se houver)
+  const bolhas = React.useMemo(() => {
+    return Array.from({ length: BUBBLE_COUNT }).map((_, i) => {
+      const size = getRandom(80, 120);
+      // Posição inicial e final aleatórias (cobre toda a tela)
+      const start = {
+        x: getRandom(0, 90),
+        y: getRandom(0, 90),
+      };
+      let end = { x: getRandom(0, 90), y: getRandom(0, 90) };
+      // Garante que a bolha vai atravessar a tela (distância mínima)
+      while (Math.abs(end.x - start.x) < 40 && Math.abs(end.y - start.y) < 40) {
+        end = { x: getRandom(0, 90), y: getRandom(0, 90) };
+      }
+      // Seleciona uma pessoa aleatória (se houver) para a foto
+      let foto = undefined;
+      if (pessoas && pessoas.length > 0) {
+        const p = pessoas[Math.floor(Math.random() * pessoas.length)];
+        if (p.foto) foto = p.foto;
+      }
+      return {
+        key: `sol-bolha-${i}`,
+        start,
+        end,
+        size,
+        foto,
+        duration: getRandom(5, 8),
+        delay: getRandom(0, 2),
+      };
+    });
+  }, [pessoas]);
+
+  function handleBubbleClick(e) {
+    setSentouPos({ x: e.clientX, y: e.clientY });
+    setSentou(true);
+    setTimeout(() => setSentou(false), 1200);
+  }
+
+  return (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-0"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 1.2 }}
+    >
+      {/* Degradê minimalista sutil */}
+      <div
+        className="absolute inset-0 w-full h-full"
+        style={{
+          background: "radial-gradient(ellipse at 60% 0%, #38bdf8 0%, #0ea5e9 40%, #18181b 100%)",
+          opacity: 0.18,
+          zIndex: 0
+        }}
+      />
+      {/* Bolhas animadas com o sol e foto */}
+      {bolhas.map((b, i) => (
+        <Bubble
+          key={b.key}
+          start={b.start}
+          end={b.end}
+          size={b.size}
+          foto={b.foto}
+          duration={b.duration}
+          delay={b.delay}
+          onClick={e => {
+            e.stopPropagation();
+            handleBubbleClick(e);
+          }}
+        />
+      ))}
+      {/* Feedback "Clicou Sentou" */}
+      {sentou && (
+        <motion.div
+          className="fixed z-50 pointer-events-none select-none text-3xl font-extrabold text-yellow-300 drop-shadow-lg"
+          style={{ left: sentouPos.x, top: sentouPos.y, transform: 'translate(-50%, -50%)' }}
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1.2, opacity: 1 }}
+          exit={{ scale: 0.7, opacity: 0 }}
+          transition={{ duration: 0.7 }}
+        >
+          Clicou Sentou
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+// Utilitário para formatar valores com ponto nos milhares
+function formatValor(valor) {
+  return valor.toLocaleString('pt-BR');
+}
+
+// 🔥 CONFIG FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyDlKU2D66-etmOHtlefViHvx4whRVdRiEE",
   authDomain: "controle-praia-2026.firebaseapp.com",
@@ -38,435 +193,420 @@ const firebaseConfig = {
   appId: "1:744354320192:web:da72b446d481158ce834a5"
 };
 
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-
-// 💰 CONFIGURAÇÃO FINANCEIRA
+// 🔥 CONFIG
 const CONFIG = {
   valorTotal: 1671,
   valorPorPessoa: 209,
   parcela: 104.5,
-  participantes: 8,
-  parcelas: 2,
 };
 
-const enviarWhats = async (mensagem) => {
-  try {
-    await fetch("http://localhost:5173/enviar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ mensagem }),
-    });
-  } catch (err) {
-    console.log("Erro ao enviar Whats:", err);
-  }
-};
+// 🔥 ADMIN
+const ADM_EMAIL = "gpiloto35@gmail.com";
+
+// 🔥 WHATS (desativado pra não bugar)
+const enviarWhats = async () => {};
+
 
 export default function App() {
-    // Função isolada para login Google
-    const handleLogin = useCallback(async () => {
-      try {
-        await signInWithPopup(auth, provider);
-      } catch (e) {
-        alert('Erro ao fazer login: ' + (e?.message || e));
-      }
-    }, []);
+    console.log('App renderizou!');
   const [pessoas, setPessoas] = useState([]);
   const [nome, setNome] = useState("");
-  const [isUploading, setIsUploading] = useState(null);
+  const [fotoFile, setFotoFile] = useState(null);
   const [modal, setModal] = useState({ open: false, pessoaId: null });
   const [user, setUser] = useState(null);
 
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsub = onAuthStateChanged(auth, setUser);
     return () => unsub();
   }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pessoas"), (snapshot) => {
-      const lista = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-    return {
-      id: doc.id,
-      nome: data.nome || "Sem nome",
-      tipo: data.tipo || "avista",
-      p1: data.p1 ?? false,
-      p2: data.p2 ?? false,
-      comprovantes: data.comprovantes || [],
-      createdAt: data.createdAt || null,
-    };
-});
-      // Fallback: se createdAt não existir, mantém ordem de chegada
-      setPessoas(
-        lista.sort((a, b) => {
-          if (a.createdAt?.seconds && b.createdAt?.seconds) {
-            return b.createdAt.seconds - a.createdAt.seconds;
-          }
-          return 0;
-        })
-      );
+      const lista = snapshot.docs.map(doc => ({
+        id: doc.id,
+        nome: doc.data().nome || "Sem nome",
+        tipo: doc.data().tipo || "avista",
+        p1: doc.data().p1 ?? false,
+        p2: doc.data().p2 ?? false,
+        comprovantes: doc.data().comprovantes || [],
+        historico: doc.data().historico || []
+      }));
+      setPessoas(lista);
     });
     return () => unsub();
   }, []);
 
   const stats = useMemo(() => {
-    let pagas = 0;
-    let totalEsperado = 0;
-    let totalRecebido = 0;
-
-    pessoas.forEach((p = {}) => {
-  if ((p.tipo || "avista") === "avista") {
-    totalEsperado += 1;
-
-    if (p.p1) {
-      pagas++;
-      totalRecebido += CONFIG.valorPorPessoa;
-    }
-
-  } else {
-    totalEsperado += CONFIG.parcelas;
-
-    if (p.p1) {
-      pagas++;
-      totalRecebido += CONFIG.parcela;
-    }
-
-    if (p.p2) {
-      pagas++;
-      totalRecebido += CONFIG.parcela;
-    }
-  }
-});
-
+    let total = 0;
+    pessoas.forEach(p => {
+      if (p.tipo === "avista") {
+        if (p.p1) total += CONFIG.valorPorPessoa;
+      } else {
+        if (p.p1) total += CONFIG.parcela;
+        if (p.p2) total += CONFIG.parcela;
+      }
+    });
     return {
-      totalRecebido,
-      falta: CONFIG.valorTotal - totalRecebido,
-      progresso: totalEsperado ? (pagas / totalEsperado) * 100 : 0,
-      totalPessoas: pessoas.length
+      total,
+      falta: CONFIG.valorTotal - total
     };
   }, [pessoas]);
 
   const addPessoa = async (e) => {
     e.preventDefault();
-    if (!user) return alert('Faça login para adicionar.');
+    if (!user) return alert("Faça login");
     if (!nome.trim()) return;
+    let fotoUrl = null;
+    if (fotoFile) {
+      try {
+        const storageRef = ref(storage, `fotos/${Date.now()}-${fotoFile.name}`);
+        await uploadBytes(storageRef, fotoFile);
+        fotoUrl = await getDownloadURL(storageRef);
+      } catch (err) {
+        alert("Erro ao fazer upload da foto");
+      }
+    }
     await addDoc(collection(db, "pessoas"), {
       nome,
+      foto: fotoUrl,
       tipo: "avista",
       p1: false,
       p2: false,
       comprovantes: [],
-      createdAt: serverTimestamp(),
+      historico: [],
+      createdAt: serverTimestamp()
     });
     setNome("");
+    setFotoFile(null);
   };
 
   const uploadComprovante = async (pessoa, file) => {
-    if (!user) return alert('Faça login para modificar.');
     if (!file) return;
-    // Validação: tipos permitidos e tamanho (até 5MB)
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      alert("Tipo de arquivo não permitido. Envie PDF, JPG ou PNG.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Arquivo muito grande. O limite é 5MB.");
-      return;
-    }
-    setIsUploading(pessoa.id);
     try {
-      const storageRef = ref(storage, `comprovantes/${Date.now()}-${file.name}`);
+      const storageRef = ref(storage, `comp/${Date.now()}-${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      const novos = [...(pessoa.comprovantes || []), { nome: file.name, url }];
-      await updateDoc(doc(db, "pessoas", pessoa.id), { comprovantes: novos });
-    } finally {
-      setIsUploading(null);
+      await updateDoc(doc(db, "pessoas", pessoa.id), {
+        comprovantes: [
+          ...(pessoa.comprovantes || []),
+          { nome: file.name, url }
+        ]
+      });
+    } catch (err) {
+      console.log("Erro upload:", err);
     }
   };
 
+  // Layout principal
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 pb-20 font-sans selection:bg-indigo-500/30">
-      {/* BOTÃO DE LOGIN DISCRETO */}
-      <div className="fixed top-2 right-4 z-50">
-        {!user ? (
+    <div className="relative min-h-screen bg-zinc-900 flex flex-col overflow-hidden">
+      {/* Fallback visual para debug */}
+      <div className="fixed top-2 left-2 z-50 bg-red-600 text-white px-3 py-1 rounded-xl text-xs shadow-lg">App carregado</div>
+      {/* ANIMAÇÃO DEGRADÊ PRAIANO + bolhas das pessoas */}
+      <AnimatedBeachBackground pessoas={pessoas} />
+      {/* HEADER */}
+      <header className="w-full py-8 bg-black shadow-lg shadow-zinc-900/40">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-4">
+          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Controle Financeiro Praia</h1>
           <button
             onClick={handleLogin}
-            title="Área restrita"
-            className="opacity-30 hover:opacity-80 text-xs px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-300"
+            className="bg-zinc-800 hover:bg-zinc-700 text-white px-5 py-2 rounded-2xl shadow transition font-semibold border border-zinc-700"
           >
-            Entrar
+            {user ? user.email : "Login"}
           </button>
-        ) : (
-          <button
-            onClick={() => signOut(auth)}
-            title={user.email}
-            className="opacity-30 hover:opacity-80 text-xs px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-emerald-400"
+        </div>
+      </header>
+
+      {/* CONTEÚDO CENTRAL */}
+      <main className="flex-1 flex flex-col items-center justify-start py-10 px-2">
+        <div className="w-full max-w-4xl mx-auto">
+          {/* FORM ADICIONAR */}
+          <form
+            onSubmit={addPessoa}
+            className="flex flex-wrap gap-3 mb-8 items-center bg-zinc-800 p-4 rounded-2xl shadow-lg shadow-zinc-950/30"
           >
-            Sair
-          </button>
-        )}
-      </div>
-      {/* GLOW DE FUNDO */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full" />
-      </div>
-      <div className="relative max-w-4xl mx-auto px-6 pt-12">
-        {/* HEADER */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <div className="flex items-center gap-2 text-indigo-400 font-bold tracking-widest text-[10px] uppercase mb-2">
-              <Umbrella size={14} />
-              <span>Verão 2026</span>
-            </div>
-            <h1 className="text-4xl font-black tracking-tight italic">Controle Financeiro Praia</h1>
-          </motion.div>
-          <form onSubmit={addPessoa} className="w-full md:w-auto flex bg-zinc-900/50 p-1.5 border border-zinc-800 rounded-2xl backdrop-blur-md">
             <input
-              className="bg-transparent border-none focus:ring-0 px-4 py-2 w-full md:w-56 text-sm"
-              placeholder="Adicionar nome..."
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={e => setNome(e.target.value)}
+              placeholder="Adicionar pessoa..."
+              className="flex-1 bg-zinc-900 text-white px-4 py-3 rounded-2xl outline-none border border-zinc-700 focus:border-blue-500 text-lg shadow"
             />
-            <button className="bg-white text-black hover:bg-zinc-200 p-2.5 rounded-xl transition-all active:scale-95 shadow-lg">
-              <Plus size={18} strokeWidth={3} />
+            {/* Upload de foto só para ADM */}
+            {user?.email === ADM_EMAIL && (
+              <label className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-2xl font-semibold shadow cursor-pointer transition border border-blue-800">
+                Foto PNG
+                <input
+                  type="file"
+                  accept="image/png"
+                  className="hidden"
+                  onChange={e => setFotoFile(e.target.files[0])}
+                />
+              </label>
+            )}
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold shadow transition"
+            >
+              +
             </button>
           </form>
-        </header>
-        {/* DASHBOARD */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-          <StatCard label="Arrecadado" value={`R$ ${stats.totalRecebido.toFixed(0)}`} icon={<Wallet className="text-emerald-400" size={18} />} progress={stats.progresso} />
-          <StatCard label="Faltante" value={`R$ ${stats.falta.toFixed(0)}`} icon={<Receipt className="text-rose-400" size={18} />} progress={100 - stats.progresso} />
-          <StatCard label="Membros" value={stats.totalPessoas} icon={<UserPlus className="text-indigo-400" size={18} />} />
-        </div>
-        {/* LISTA */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-zinc-500 text-[11px] font-black uppercase tracking-[0.2em]">Lista de Integrantes</h2>
-            <div className="h-px flex-1 bg-zinc-800/50 mx-4" />
+
+          {/* CARDS DE STATUS */}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <StatusCard
+              title="Arrecadado"
+              value={`R$ ${formatValor(stats.total)}`}
+              icon="💰"
+              color="from-green-500 to-green-700"
+            />
+            <StatusCard
+              title="Faltante"
+              value={`R$ ${formatValor(stats.falta > 0 ? stats.falta : 0)}`}
+              icon="🧾"
+              color="from-yellow-500 to-yellow-700"
+            />
+            <StatusCard
+              title="Membros"
+              value={pessoas.length}
+              icon="👥"
+              color="from-blue-500 to-blue-700"
+            />
           </div>
-          <AnimatePresence mode="popLayout">
-            {pessoas.map((p) => (
-              <MemoPessoaCard
-                key={p.id}
-                pessoa={p}
-                isUploading={isUploading}
-                uploadComprovante={uploadComprovante}
-                db={db}
-                setIsUploading={setIsUploading}
-                onRequestDelete={() => setModal({ open: true, pessoaId: p.id })}
-              />
-            ))}
-          </AnimatePresence>
-          {/* MODAL DE CONFIRMAÇÃO */}
-          {modal.open && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-              <div className="bg-zinc-900 p-8 rounded-2xl shadow-2xl border border-zinc-700 flex flex-col items-center gap-6 min-w-[300px]">
-                <div className="text-lg font-bold text-zinc-100">Tem certeza que deseja remover este participante?</div>
-                <div className="flex gap-4 mt-2">
-                  <button
-                    className="px-6 py-2 rounded-lg bg-rose-600 text-white font-bold hover:bg-rose-700 transition"
-                    onClick={async () => {
-                      await deleteDoc(doc(db, "pessoas", modal.pessoaId));
-                      setModal({ open: false, pessoaId: null });
-                    }}
-                  >Remover</button>
-                  <button
-                    className="px-6 py-2 rounded-lg bg-zinc-700 text-zinc-200 font-bold hover:bg-zinc-600 transition"
-                    onClick={() => setModal({ open: false, pessoaId: null })}
-                  >Cancelar</button>
-                </div>
-              </div>
-            </div>
-          )}
+
+          {/* LISTA DE PESSOAS */}
+          <div className="space-y-6">
+            <AnimatePresence>
+              {pessoas.map(p => (
+                <PessoaCard
+                  key={p.id}
+                  pessoa={p}
+                  db={db}
+                  uploadComprovante={uploadComprovante}
+                  user={user}
+                  onDelete={() => setModal({ open: true, pessoaId: p.id })}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* MODAL DELETAR */}
+      <AnimatePresence>
+        {modal.open && (
+          <motion.div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-zinc-900 rounded-2xl p-8 shadow-2xl max-w-sm w-full text-center border border-zinc-700"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h2 className="text-xl font-bold mb-4 text-white">Confirmar exclusão?</h2>
+              <button
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-2xl font-bold shadow mr-2"
+                onClick={async () => {
+                  await deleteDoc(doc(db, "pessoas", modal.pessoaId));
+                  setModal({ open: false, pessoaId: null });
+                }}
+              >
+                Excluir
+              </button>
+              <button
+                className="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2 rounded-2xl font-bold shadow"
+                onClick={() => setModal({ open: false, pessoaId: null })}
+              >
+                Cancelar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-// --- COMPONENTE PESSOA CARD ---
-function PessoaCard({ pessoa, isUploading, uploadComprovante, db, onRequestDelete }) {
-  const {
-  id,
-  nome = "Sem nome",
-  tipo = "avista",
-  p1 = false,
-  p2 = false,
-  comprovantes = []
-} = pessoa || {};
-  // Debounce para edição de nome
-  const debounceRef = useRef();
-  const handleNomeChange = useCallback((e) => {
-    const value = e.target.value;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      updateDoc(doc(db, "pessoas", id), { nome: value });
-    }, 500);
-  }, [db, id]);
-  const handleTipo = useCallback((novoTipo) => {
-    updateDoc(doc(db, "pessoas", id), {
-      tipo: novoTipo,
-      p1: false,
-      p2: false,
-    });
-  }, [db, id]);
-  const handleP1 = useCallback(async () => {
+
+
+// CARD DE STATUS
+function StatusCard({ title, value, icon, color }) {
+  return (
+    <motion.div
+      className={`rounded-2xl shadow-lg p-6 bg-gradient-to-br ${color} text-white flex flex-col items-center justify-center min-h-[120px]`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      layout
+    >
+      <div className="text-3xl mb-2">{icon}</div>
+      <div className="text-lg font-semibold mb-1">{title}</div>
+      <div className="text-2xl font-bold tracking-tight">{value}</div>
+    </motion.div>
+  );
+}
+
+// CARD DE PESSOA
+function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
+  // Segurança contra undefined
+  const id = pessoa.id;
+  const nome = pessoa.nome || "Sem nome";
+  const tipo = pessoa.tipo || "avista";
+  const p1 = pessoa.p1 ?? false;
+  const p2 = pessoa.p2 ?? false;
+  const isAdmin = user?.email === ADM_EMAIL;
+
+  // Progresso
+  let progresso = 0;
+  if (tipo === "avista") {
+    progresso = p1 ? 100 : 0;
+  } else {
+    progresso = ((p1 ? 1 : 0) + (p2 ? 1 : 0)) * 50;
+  }
+
+  // Toggle tipo
+  const handleToggleTipo = async () => {
+    const novoTipo = tipo === "avista" ? "parcelado" : "avista";
+    await updateDoc(doc(db, "pessoas", id), { tipo: novoTipo });
+  };
+
+  // Pagar 1
+  const handleP1 = async () => {
     const novoValor = !p1;
-
     await updateDoc(doc(db, "pessoas", id), { p1: novoValor });
-
     if (novoValor) {
-    if (tipo === "avista") {
-      enviarWhats(`💸 *${nome}* quitou tudo à vista!`);
-    } else {
-      enviarWhats(`💰 *${nome}* pagou a *1ª parcela*!`);
+      if (tipo === "avista") {
+        enviarWhats(`💸 *${nome}* quitou tudo à vista!`);
+      } else {
+        enviarWhats(`💰 *${nome}* pagou a *1ª parcela*!`);
       }
     }
-  }, [db, id, p1]);
+  };
 
-  const handleP2 = useCallback(async () => {
+  // Pagar 2
+  const handleP2 = async () => {
     if (!p1) {
       alert("Marque a 1ª parcela primeiro");
       return;
     }
     const novoValor = !p2;
-
     await updateDoc(doc(db, "pessoas", id), { p2: novoValor });
-
     if (novoValor) {
       enviarWhats(`💰 *${nome}* pagou a *2ª parcela*!`);
     }
-  }, [db, id, p2, p1, nome]);
+  };
 
-  // Chama o modal de confirmação do App
-  const handleDelete = useCallback(() => {
-    if (onRequestDelete) onRequestDelete();
-  }, [onRequestDelete]);
+  // Animação framer-motion
   return (
     <motion.div
+      className="bg-zinc-800 rounded-2xl shadow-lg p-6 flex flex-col md:flex-row md:items-center gap-6 border border-zinc-700"
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 30 }}
       layout
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="group bg-zinc-900/40 border border-zinc-800/60 p-6 rounded-[24px] hover:border-zinc-700 transition-all shadow-xl"
     >
-      <div className="flex flex-col gap-6">
-        {/* LINHA 1: NOME E TIPO */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <input
-            value={nome}
-            onChange={handleNomeChange}
-            className="bg-transparent text-xl font-bold text-zinc-100 outline-none focus:text-indigo-400 transition-colors"
-          />
-          <div className="flex bg-black/40 p-1 rounded-xl border border-zinc-800 w-fit">
-            <TabBtn active={tipo === "avista"} onClick={() => handleTipo("avista")}>À Vista</TabBtn>
-            <TabBtn active={tipo === "parcelado"} onClick={() => handleTipo("parcelado")}>Parcelado</TabBtn>
-          </div>
+      {/* Nome e tipo */}
+      <div className="flex-1 min-w-[180px]">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-2xl font-bold text-white truncate">{nome}</span>
+          {isAdmin && <span className="ml-2 text-xs bg-blue-700 text-white px-2 py-1 rounded-xl">ADM</span>}
         </div>
-        {/* LINHA 2: PAGAMENTOS E ANEXOS */}
-        <div className="flex flex-wrap items-center gap-3">
-          <PaymentBtn 
-            active={p1} 
-            onClick={handleP1} 
-            label={tipo === "avista" ? "Quitar Cota" : "1ª Parcela"}
-          />
-          {tipo === "parcelado" && (
-            <PaymentBtn 
-              active={p2} 
-              onClick={handleP2}
-              label="2ª Parcela"
-            />
-          )}
-          <div className="h-8 w-px bg-zinc-800 mx-2 hidden md:block" />
-          {/* BOTÃO UPLOAD CUSTOM */}
-          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer transition-all active:scale-95 text-xs font-bold border border-zinc-700/50">
-            {isUploading === id ? <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
-            <span>Comprovante</span>
-            <input type="file" className="hidden" onChange={(e) => uploadComprovante(pessoa, e.target.files[0])} />
-          </label>
-          <button 
-            onClick={handleDelete}
-            className="p-2.5 rounded-xl text-zinc-600 hover:text-rose-500 hover:bg-rose-500/10 transition-all ml-auto"
-            type="button"
+        <button
+          onClick={handleToggleTipo}
+          className={`px-4 py-1 rounded-2xl text-sm font-semibold shadow border transition
+            ${tipo === "avista"
+              ? "bg-green-700 text-white border-green-800 hover:bg-green-800"
+              : "bg-yellow-700 text-white border-yellow-800 hover:bg-yellow-800"}
+          `}
+        >
+          {tipo === "avista" ? "À vista" : "Parcelado"}
+        </button>
+      </div>
+
+      {/* Botões de pagamento */}
+      <div className="flex flex-col gap-2 min-w-[120px]">
+        <button
+          onClick={handleP1}
+          className={`px-4 py-2 rounded-2xl font-bold shadow border transition text-lg
+            ${p1
+              ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
+              : "bg-zinc-700 text-white border-zinc-600 hover:bg-zinc-600"}
+          `}
+        >
+          {tipo === "avista" ? (p1 ? "Pago" : "Pagar") : (p1 ? "Pago 1" : "Pagar 1")}
+        </button>
+        {tipo === "parcelado" && (
+          <button
+            onClick={handleP2}
+            className={`px-4 py-2 rounded-2xl font-bold shadow border transition text-lg
+              ${p2
+                ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
+                : "bg-zinc-700 text-white border-zinc-600 hover:bg-zinc-600"}
+            `}
           >
-            <Trash2 size={18} />
+            {p2 ? "Pago 2" : "Pagar 2ª"}
           </button>
-        </div>
-        {/* COMPROVANTES LISTA */}
-        {comprovantes?.length > 0 && (
-          <div className="flex flex-wrap gap-2 p-3 bg-black/20 rounded-2xl border border-zinc-800/30">
-            {comprovantes.map((c, i) => (
-              <a key={i} href={c.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-[10px] font-bold text-zinc-400 hover:text-white transition-colors">
-                <FileText size={12} className="text-indigo-400" />
-                <span className="max-w-[120px] truncate">{c.nome}</span>
-                <ExternalLink size={10} />
-              </a>
-            ))}
-          </div>
         )}
       </div>
-    </motion.div>
-  );
-}
-const MemoPessoaCard = memo(PessoaCard);
 
-// --- COMPONENTES AUXILIARES ---
-
-function StatCard({ label, value, icon, progress }) {
-  return (
-    <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[24px] backdrop-blur-md">
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">{label}</span>
-        <div className="p-2 bg-zinc-800/50 rounded-lg border border-zinc-700/50">{icon}</div>
-      </div>
-      <div className="text-2xl font-black tracking-tight">{value}</div>
-      {progress !== undefined && (
-        <div className="mt-4 w-full bg-zinc-800 h-1 rounded-full overflow-hidden">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="bg-indigo-500 h-full" />
+      {/* Barra de progresso */}
+      <div className="flex flex-col justify-center min-w-[120px] w-full max-w-[200px]">
+        <div className="h-4 bg-zinc-700 rounded-xl overflow-hidden shadow-inner">
+          <div
+            className="h-4 bg-gradient-to-r from-green-400 to-green-700 rounded-xl transition-all duration-500"
+            style={{ width: progresso + "%" }}
+          />
         </div>
-      )}
-    </div>
-  );
-}
-
-function TabBtn({ children, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-        active ? "bg-zinc-700 text-white shadow-lg" : "text-zinc-500 hover:text-zinc-300"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function PaymentBtn({ active, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all active:scale-95 ${
-        active 
-        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.05)]" 
-        : "bg-zinc-800/30 border-zinc-800/80 text-zinc-500 hover:border-zinc-700"
-      }`}
-    >
-      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-        active ? "bg-emerald-500 border-emerald-500" : "border-zinc-700"
-      }`}>
-        {active && <Check size={12} className="text-zinc-900" strokeWidth={4} />}
+        <div className="text-xs text-zinc-300 mt-1 text-center">{progresso}%</div>
       </div>
-      <span className="text-xs font-black uppercase tracking-tight">{label}</span>
-    </button>
+
+      {/* Upload comprovante */}
+      <div className="flex flex-col items-center gap-2 min-w-[120px]">
+        <label className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-2xl font-semibold shadow cursor-pointer transition border border-blue-800">
+          Upload
+          <input
+            type="file"
+            className="hidden"
+            onChange={e => uploadComprovante(pessoa, e.target.files[0])}
+          />
+        </label>
+        {pessoa.comprovantes && pessoa.comprovantes.length > 0 && (
+          <a
+            href={pessoa.comprovantes[pessoa.comprovantes.length - 1].url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-400 underline mt-1"
+          >
+            Ver último
+          </a>
+        )}
+      </div>
+
+      {/* Excluir (admin) */}
+      {isAdmin && (
+        <button
+          onClick={onDelete}
+          className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-2xl font-bold shadow border border-red-800 transition min-w-[100px]"
+        >
+          Excluir
+        </button>
+      )}
+    </motion.div>
   );
 }
