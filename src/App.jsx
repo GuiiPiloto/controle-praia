@@ -162,19 +162,6 @@ function AnimatedBeachBackground({ pessoas }) {
           }}
         />
       ))}
-      {/* Feedback "Clicou Sentou" */}
-      {sentou && (
-        <motion.div
-          className="fixed z-50 pointer-events-none select-none text-3xl font-extrabold text-yellow-300 drop-shadow-lg"
-          style={{ left: sentouPos.x, top: sentouPos.y, transform: 'translate(-50%, -50%)' }}
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1.2, opacity: 1 }}
-          exit={{ scale: 0.7, opacity: 0 }}
-          transition={{ duration: 0.7 }}
-        >
-          Clicou Sentou
-        </motion.div>
-      )}
     </motion.div>
   );
 }
@@ -551,7 +538,7 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
               : "bg-zinc-700 text-white border-zinc-600 hover:bg-zinc-600"}
           `}
         >
-          {tipo === "avista" ? (p1 ? "Pago" : "Pagar") : (p1 ? "Pago 1" : "Pagar 1")}
+          {tipo === "avista" ? (p1 ? "Pago" : "Pagar") : (p1 ? "Pago 1" : "Pagar 1ª")}
         </button>
         {tipo === "parcelado" && (
           <button
