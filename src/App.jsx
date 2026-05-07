@@ -120,7 +120,7 @@ function AnimatedBeachBackground({ pessoas }) {
         delay: getRandom(0, 2),
       };
     });
-  }, [pessoas]);
+  }, []);
 
   function handleBubbleClick(e) {
     setSentouPos({ x: e.clientX, y: e.clientY });
@@ -243,7 +243,8 @@ export default function App() {
         p1: doc.data().p1 ?? false,
         p2: doc.data().p2 ?? false,
         comprovantes: doc.data().comprovantes || [],
-        historico: doc.data().historico || []
+        historico: doc.data().historico || [],
+        foto: doc.data().foto || null
       }));
       setPessoas(lista);
     });
@@ -453,7 +454,6 @@ function StatusCard({ title, value, icon, color }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      layout
     >
       <div className="text-3xl mb-2">{icon}</div>
       <div className="text-lg font-semibold mb-1">{title}</div>
@@ -480,13 +480,18 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
 
   // Toggle tipo
   const handleToggleTipo = async () => {
-    const novoTipo = tipo === "avista" ? "parcelado" : "avista";
-    await updateDoc(doc(db, "pessoas", id), { tipo: novoTipo });
-  };
+  const novoTipo = tipo === "avista" ? "parcelado" : "avista";
+
+  await updateDoc(doc(db, "pessoas", id), {
+    tipo: novoTipo,
+    p1: false,
+    p2: false
+  });
+};
 
   // Pagar 1
   const handleP1 = async () => {
-    const novoValor = !p1;
+    const novoValor = p1 === true ? false : true;
     await updateDoc(doc(db, "pessoas", id), { p1: novoValor });
     if (novoValor) {
       if (tipo === "avista") {
@@ -503,7 +508,7 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
       alert("Marque a 1ª parcela primeiro");
       return;
     }
-    const novoValor = !p2;
+    const novoValor = p2 === true ? false : true;
     await updateDoc(doc(db, "pessoas", id), { p2: novoValor });
     if (novoValor) {
       enviarWhats(`💰 *${nome}* pagou a *2ª parcela*!`);
@@ -517,7 +522,6 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 30 }}
-      layout
     >
       {/* Nome e tipo */}
       <div className="flex-1 min-w-[180px]">
