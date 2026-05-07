@@ -538,7 +538,7 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
               : "bg-zinc-700 text-white border-zinc-600 hover:bg-zinc-600"}
           `}
         >
-          {tipo === "avista" ? (p1 ? "Pago" : "Pagar") : (p1 ? "Pago 1" : "Pagar 1ª")}
+          {tipo === "avista" ? (p1 ? "Pago" : "Pagar") : (p1 ? "Pago 1ª" : "Pagar 1ª")}
         </button>
         {tipo === "parcelado" && (
           <button
