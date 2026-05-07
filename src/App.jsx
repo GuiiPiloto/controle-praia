@@ -473,12 +473,10 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
   const isAdmin = user?.email === ADM_EMAIL;
 
   // Progresso
-  let progresso = 0;
-  if (tipo === "avista") {
-    progresso = p1 ? 100 : 0;
-  } else {
-    progresso = ((p1 ? 1 : 0) + (p2 ? 1 : 0)) * 50;
-  }
+  const progresso =
+  tipo === "avista"
+    ? (p1 ? 100 : 0)
+    : ((Number(p1) + Number(p2)) / 2) * 100;
 
   // Toggle tipo
   const handleToggleTipo = async () => {
