@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Toaster, toast } from "react-hot-toast";
 import { format, differenceInDays, differenceInHours, differenceInMinutes } from "date-fns";
@@ -23,7 +23,7 @@ function formatValor(valor) {
 }
 
 // ─── DATA ALVO (viagem praia) ────────────────────────────────────────────────
-const VIAGEM_DATE = new Date(2026, 9, 4); // 1 de Janeiro de 2027
+const VIAGEM_DATE = new Date(2026, 9, 4);
 
 // ─── COMPONENTE DE AVATAR ────────────────────────────────────────────────────
 function AvatarCircle({ foto, nome, size = "md", className = "" }) {
@@ -329,6 +329,9 @@ export default function App() {
   const [modal, setModal] = useState({ open: false, pessoaId: null });
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const isAdmin = user?.email === ADM_EMAIL;
+  const fileInputRef = useRef(null);
 
   const handleLogin = async () => {
     try {
@@ -390,16 +393,30 @@ export default function App() {
 
   const addPessoa = async (e) => {
     e.preventDefault();
+    if (adding) return;
     if (!user) return toast.error("Faça login primeiro!");
     if (!nome.trim()) return toast.error("Digite um nome!");
+    
+    setAdding(true);
     const nomeLimpo = nome.trim();
+    const currentFotoFile = fotoFile;
+
     try {
       let fotoUrl = null;
-      if (fotoFile) {
-        const storageRef = ref(storage, "fotos/" + Date.now() + "-" + fotoFile.name);
-        await uploadBytes(storageRef, fotoFile);
-        fotoUrl = await getDownloadURL(storageRef);
+      if (currentFotoFile) {
+        const toastId = toast.loading("Enviando foto...");
+        try {
+          const storageRef = ref(storage, "fotos/" + Date.now() + "-" + currentFotoFile.name);
+          const snapshot = await uploadBytes(storageRef, currentFotoFile);
+          fotoUrl = await getDownloadURL(snapshot.ref);
+          toast.dismiss(toastId);
+        } catch (uploadErr) {
+          toast.dismiss();
+          toast.error("Erro ao enviar foto, mas a pessoa será adicionada sem foto.");
+          console.log("Upload error:", uploadErr);
+        }
       }
+
       await addDoc(collection(db, "pessoas"), {
         nome: nomeLimpo,
         foto: fotoUrl,
@@ -410,12 +427,17 @@ export default function App() {
         historico: [],
         createdAt: serverTimestamp(),
       });
+
       toast.success(nomeLimpo + " adicionado(a) com sucesso! 🎉");
       setNome("");
       setFotoFile(null);
       setFotoPreview(null);
-    } catch {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      console.log("Error adding person:", err);
       toast.error("Erro ao adicionar pessoa");
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -446,11 +468,11 @@ export default function App() {
   const clearFotoPreview = () => {
     setFotoFile(null);
     setFotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
     <div className="relative min-h-screen bg-zinc-900 flex flex-col overflow-x-hidden">
-      {/* Toaster Premium */}
       <Toaster
         position="top-right"
         toastOptions={{
@@ -472,7 +494,6 @@ export default function App() {
 
       <BeachBackground />
 
-      {/* HEADER */}
       <header className="relative z-20 w-full py-4 sm:py-5 md:py-6 lg:py-8 bg-zinc-900/90 border-b border-white/10 shadow-lg sticky top-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-0.5">
@@ -494,83 +515,90 @@ export default function App() {
 
       <main className="relative z-10 flex-1 flex flex-col items-center justify-start py-4 sm:py-6 md:py-8 lg:py-10 px-3 sm:px-4 md:px-6">
         <div className="w-full max-w-4xl mx-auto">
-          {/* COUNTDOWN */}
           <CountdownTimer />
 
-          {/* FORM ADICIONAR */}
-          <form
-            onSubmit={addPessoa}
-            className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-6 md:mb-8 items-stretch sm:items-center bg-zinc-800/90 p-4 sm:p-5 md:p-6 rounded-2xl shadow-lg border border-zinc-700/50"
-          >
-            <div className="flex-1 flex items-center gap-3 min-w-0">
-              <input
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                placeholder="Adicionar pessoa..."
-                className="flex-1 bg-zinc-900 text-white px-4 py-3 sm:py-3.5 rounded-2xl outline-none border border-zinc-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 text-responsive-base sm:text-lg shadow min-h-touch transition-all duration-200"
-              />
-            </div>
-            {user?.email === ADM_EMAIL && (
-              <div className="flex items-center gap-2">
-                {fotoPreview ? (
-                  <div className="relative flex-shrink-0">
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="w-[48px] h-[48px] rounded-full overflow-hidden ring-2 ring-cyan-400/60 ring-offset-2 ring-offset-zinc-800"
-                    >
-                      <img src={fotoPreview} alt="Preview" className="w-full h-full object-cover" />
-                    </motion.div>
-                    <button
-                      type="button"
-                      onClick={clearFotoPreview}
-                      className="absolute -top-1 -right-1 bg-red-600 hover:bg-red-700 text-white w-[20px] h-[20px] rounded-full flex items-center justify-center text-xs font-bold shadow-lg transition-all"
-                    >
-                      {"×"}
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex-shrink-0 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl font-semibold shadow cursor-pointer transition-all duration-200 border border-blue-800 min-h-touch flex items-center justify-center text-sm sm:text-base gap-1.5">
-                    {"📸"} Foto
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFotoSelect} />
-                  </label>
-                )}
-              </div>
-            )}
-            <button
-              type="submit"
-              className="flex-shrink-0 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:from-cyan-600 active:to-blue-700 text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-2xl font-bold shadow-lg shadow-cyan-500/20 transition-all duration-200 min-h-touch min-w-touch flex items-center justify-center text-responsive-lg sm:text-xl"
+          {/* FORM ADICIONAR - visível para admin */}
+          {isAdmin && (
+            <form
+              onSubmit={addPessoa}
+              className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-6 md:mb-8 items-stretch sm:items-center bg-zinc-800/90 p-4 sm:p-5 md:p-6 rounded-2xl shadow-lg border border-zinc-700/50"
             >
-              +
-            </button>
-          </form>
+              <div className="flex-1 flex items-center gap-3 min-w-0">
+                <input
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder="Adicionar pessoa..."
+                  className="flex-1 bg-zinc-900 text-white px-4 py-3 sm:py-3.5 rounded-2xl outline-none border border-zinc-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 text-responsive-base sm:text-lg shadow min-h-touch transition-all duration-200"
+                />
+              </div>
+              {user?.email === ADM_EMAIL && (
+                <div className="flex items-center gap-2">
+                  {fotoPreview ? (
+                    <div className="relative flex-shrink-0">
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="w-[48px] h-[48px] rounded-full overflow-hidden ring-2 ring-cyan-400/60 ring-offset-2 ring-offset-zinc-800"
+                      >
+                        <img src={fotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                      </motion.div>
+                      <button
+                        type="button"
+                        onClick={clearFotoPreview}
+                        className="absolute -top-1 -right-1 bg-red-600 hover:bg-red-700 text-white w-[20px] h-[20px] rounded-full flex items-center justify-center text-xs font-bold shadow-lg transition-all"
+                      >
+                        {"×"}
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex-shrink-0 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl font-semibold shadow cursor-pointer transition-all duration-200 border border-blue-800 min-h-touch flex items-center justify-center text-sm sm:text-base gap-1.5">
+                      {"📸"} Foto
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFotoSelect} ref={fileInputRef} />
+                    </label>
+                  )}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={adding}
+                className={"flex-shrink-0 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:from-cyan-600 active:to-blue-700 text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-2xl font-bold shadow-lg shadow-cyan-500/20 transition-all duration-200 min-h-touch min-w-touch flex items-center justify-center text-responsive-lg sm:text-xl " + (adding ? "opacity-60 cursor-not-allowed" : "")}
+              >
+                {adding ? "..." : "+"}
+              </button>
+            </form>
+          )}
 
-          {/* CARDS DE STATUS */}
-          <motion.div
-            className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-10"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            {loading ? (
-              <>
-                <SkeletonStatusCard />
-                <SkeletonStatusCard />
-                <SkeletonStatusCard />
-              </>
-            ) : (
-              <>
-                <StatusCard title="Arrecadado" value={"R$ " + formatValor(stats.total)} icon="💰" gradient="from-emerald-600 to-emerald-800" />
-                <StatusCard title="Faltante" value={"R$ " + formatValor(stats.falta > 0 ? stats.falta : 0)} icon="🧾" gradient="from-amber-600 to-amber-800" />
-                <StatusCard title="Membros" value={pessoas.length} icon="👥" gradient="from-cyan-600 to-blue-800" />
-              </>
-            )}
-          </motion.div>
+          {/* DASHBOARD - APENAS PARA ADM */}
+          {isAdmin && (
+            <>
+              {/* CARDS DE STATUS */}
+              <motion.div
+                className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-10"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+              >
+                {loading ? (
+                  <>
+                    <SkeletonStatusCard />
+                    <SkeletonStatusCard />
+                    <SkeletonStatusCard />
+                  </>
+                ) : (
+                  <>
+                    <StatusCard title="Arrecadado" value={"R$ " + formatValor(stats.total)} icon="💰" gradient="from-emerald-600 to-emerald-800" />
+                    <StatusCard title="Faltante" value={"R$ " + formatValor(stats.falta > 0 ? stats.falta : 0)} icon="🧾" gradient="from-amber-600 to-amber-800" />
+                    <StatusCard title="Membros" value={pessoas.length} icon="👥" gradient="from-cyan-600 to-blue-800" />
+                  </>
+                )}
+              </motion.div>
 
-          {/* GRÁFICOS */}
-          {!loading && pessoas.length > 0 && <DashboardCharts pessoas={pessoas} />}
+              {/* GRÁFICOS */}
+              {!loading && pessoas.length > 0 && <DashboardCharts pessoas={pessoas} />}
+            </>
+          )}
 
-          {/* LISTA DE PESSOAS */}
+          {/* LISTA DE PESSOAS - visível para todos */}
           <div className="space-y-4 sm:space-y-5 md:space-y-6">
             {loading ? (
               <>
