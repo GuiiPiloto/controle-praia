@@ -355,6 +355,7 @@ export default function App() {
   const [nome, setNome] = useState("");
   const [fotoPreview, setFotoPreview] = useState(null);
   const [modal, setModal] = useState({ open: false, pessoaId: null });
+  const [subModal, setSubModal] = useState({ open: false, pessoaId: null });
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -550,61 +551,64 @@ export default function App() {
           <div className="space-y-4 sm:space-y-5 md:space-y-6">
             {loading ? (<><SkeletonCard /><SkeletonCard /><SkeletonCard /></>) : (
               <AnimatePresence>
-                {pessoas.map((p) => (<PessoaCard key={p.id} pessoa={p} db={db} user={user} onDelete={() => { console.log("[DeletePessoa] Abrindo modal para ID:", p.id); setModal({ open: true, pessoaId: p.id }); }} />))}
+                {pessoas.map((p) => (<PessoaCard key={p.id} pessoa={p} db={db} user={user} onDelete={() => { console.log("[DeletePessoa] Abrindo modal para ID:", p.id); setSubModal({ open: true, pessoaId: p.id }); }} />))}
               </AnimatePresence>
             )}
           </div>
         </div>
       </main>
-      <AnimatePresence>
-        {modal.open && (
-          <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] px-4" initial={{ opacity: 0 }} exit={{ opacity: 0 }}>
-            <motion.div className="bg-zinc-900 rounded-2xl p-6 sm:p-8 shadow-2xl w-full max-w-sm mx-auto text-center border border-zinc-700 pointer-events-auto" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
-              <h2 className="text-responsive-lg sm:text-xl font-bold mb-4 sm:mb-6 text-white">Confirmar exclusão?</h2>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-                <button type="button" disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-bold" onClick={async () => {
-                  console.log("BOTAO EXCLUIR CLICADO");
-                  
-                  if (!modal.pessoaId) {
-                    console.log("SEM ID");
-                    return;
-                  }
-                  
-                  console.log("ID RECEBIDO:", modal.pessoaId);
-                  console.log("USUARIO LOGADO:", user?.email);
-                  
-                  setDeleting(true);
-                  
+      {subModal.open && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+          <div className="bg-zinc-900 p-6 rounded-2xl w-full max-w-sm border border-zinc-700">
+            <h2 className="text-white text-xl font-bold mb-5">
+              Confirmar exclusão?
+            </h2>
+            <div className="flex gap-3">
+              <button
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold"
+                onClick={async () => {
+                  console.log("INICIANDO DELETE");
                   try {
-                    const ref = doc(db, "pessoas", modal.pessoaId);
-                    console.log("DOC REF:", ref);
-                    
-                    await deleteDoc(ref);
-                    
-                    console.log("DOCUMENTO EXCLUIDO");
+                    setDeleting(true);
+                    console.log("ID:", subModal.pessoaId);
+                    console.log("USER:", user?.email);
+                    await deleteDoc(
+                      doc(db, "pessoas", subModal.pessoaId)
+                    );
+                    console.log("DELETE OK");
                     toast.success("Pessoa removida!");
-                    
-                    setModal({
+                    setSubModal({
                       open: false,
-                      pessoaId: null,
+                      pessoaId: null
                     });
                   } catch (err) {
-                    console.error("ERRO AO EXCLUIR:", err);
+                    console.error(err);
                     toast.error(
                       err?.message || "Erro ao excluir"
                     );
                   } finally {
                     setDeleting(false);
                   }
-                }}>
-                  {deleting ? "Excluindo..." : "Excluir"}
-                </button>
-                <button className="bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-500 text-white px-6 py-3 sm:py-2.5 rounded-2xl font-bold shadow transition-all duration-200 min-h-touch" onClick={() => setModal({ open: false, pessoaId: null })}>Cancelar</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                }}
+              >
+                {deleting ? "Excluindo..." : "Excluir"}
+              </button>
+              <button
+                className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white py-3 rounded-xl font-bold"
+                onClick={() =>
+                  setSubModal({
+                    open: false,
+                    pessoaId: null
+                  })
+                }
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
