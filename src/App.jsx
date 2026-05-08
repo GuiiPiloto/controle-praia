@@ -367,6 +367,7 @@ export default function App() {
           historico: d.data().historico || [],
           foto: d.data().foto || null,
         }));
+        lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
         setPessoas(lista);
         setLoading(false);
       },
@@ -682,6 +683,10 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
   const p2 = pessoa.p2 ?? false;
   const isAdmin = user?.email === ADM_EMAIL;
   const progresso = tipo === "avista" ? (p1 ? 100 : 0) : ((Number(p1) + Number(p2)) / 2) * 100;
+  const [editandoNome, setEditandoNome] = useState(false);
+  const [nomeEdit, setNomeEdit] = useState(nome);
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const [editandoFoto, setEditandoFoto] = useState(false);
 
   const handleToggleTipo = async () => {
     const novoTipo = tipo === "avista" ? "parcelado" : "avista";
@@ -715,6 +720,42 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
     }
   };
 
+  const salvarNome = async () => {
+    const nomeTrim = nomeEdit.trim();
+    if (!nomeTrim || nomeTrim === nome) {
+      setEditandoNome(false);
+      setNomeEdit(nome);
+      return;
+    }
+    setSalvandoNome(true);
+    try {
+      await updateDoc(doc(db, "pessoas", id), { nome: nomeTrim });
+      toast.success("Nome atualizado!");
+      setEditandoNome(false);
+    } catch {
+      toast.error("Erro ao atualizar nome");
+    } finally {
+      setSalvandoNome(false);
+    }
+  };
+
+  const handleFotoEdit = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setEditandoFoto(true);
+    try {
+      const storageRef = ref(storage, "fotos/" + Date.now() + "-" + file.name);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await updateDoc(doc(db, "pessoas", id), { foto: url });
+      toast.success("Foto atualizada! 📸");
+    } catch {
+      toast.error("Erro ao atualizar foto");
+    } finally {
+      setEditandoFoto(false);
+    }
+  };
+
   const comprovantes = pessoa.comprovantes || [];
   const ultimoComprovante = comprovantes.length > 0 ? comprovantes[comprovantes.length - 1] : null;
 
@@ -730,15 +771,61 @@ function PessoaCard({ pessoa, db, uploadComprovante, user, onDelete }) {
       <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-cyan-500/10 via-cyan-400/5 to-transparent pointer-events-none" />
       <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400/0 via-cyan-400/5 to-purple-400/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-700 pointer-events-none" />
       <div className="relative z-10 flex items-center gap-3 sm:gap-4">
-        <AvatarCircle foto={pessoa.foto} nome={nome} size="md" />
+        <div className="relative flex-shrink-0">
+          <AvatarCircle foto={pessoa.foto} nome={nome} size="md" />
+          {isAdmin && !editandoFoto && (
+            <label className="absolute -bottom-1 -right-1 w-[22px] h-[22px] bg-zinc-700 hover:bg-zinc-600 rounded-full flex items-center justify-center cursor-pointer border border-zinc-600 shadow-lg transition-all hover:scale-110">
+              <span className="text-[10px] leading-none">✏️</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFotoEdit} />
+            </label>
+          )}
+          {editandoFoto && (
+            <div className="absolute -bottom-1 -right-1 w-[22px] h-[22px] rounded-full flex items-center justify-center bg-cyan-500/30 border border-cyan-400/50">
+              <span className="text-[8px] text-cyan-300 animate-pulse">⬆</span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-responsive-lg sm:text-xl md:text-2xl font-bold text-white truncate">{nome}</span>
-              {isAdmin && (
-                <span className="flex-shrink-0 text-[10px] sm:text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl font-medium border border-cyan-400/30">
-                  ADM
-                </span>
+              {editandoNome ? (
+                <div className="flex items-center gap-2 w-full">
+                  <input
+                    value={nomeEdit}
+                    onChange={(e) => setNomeEdit(e.target.value)}
+                    className="flex-1 bg-zinc-900 text-white px-3 py-1.5 rounded-xl outline-none border border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 text-responsive-lg sm:text-xl md:text-2xl font-bold min-h-[44px]"
+                    autoFocus
+                    onKeyDown={(e) => e.key === "Enter" && salvarNome()}
+                  />
+                  <button
+                    onClick={salvarNome}
+                    disabled={salvandoNome}
+                    className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow transition-all disabled:opacity-50"
+                  >
+                    {salvandoNome ? "..." : "Salvar"}
+                  </button>
+                  <button
+                    onClick={() => { setEditandoNome(false); setNomeEdit(nome); }}
+                    className="bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span
+                    className={"text-responsive-lg sm:text-xl md:text-2xl font-bold text-white truncate " + (isAdmin ? "cursor-pointer hover:text-cyan-300 transition-colors" : "")}
+                    onClick={() => { if (isAdmin) { setNomeEdit(nome); setEditandoNome(true); } }}
+                    title={isAdmin ? "Clique para editar" : ""}
+                  >
+                    {nome}
+                  </span>
+                  {isAdmin && (
+                    <span className="flex-shrink-0 text-[10px] sm:text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl font-medium border border-cyan-400/30">
+                      ADM
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
