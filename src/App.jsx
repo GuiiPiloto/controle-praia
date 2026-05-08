@@ -243,8 +243,8 @@ function DashboardCharts({ pessoas }) {
 }
 
 // ─── FUNÇÃO DE UPLOAD CLOUDINARY ────────────────────────────────────────────
-const CLOUD_NAME = (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "controlepraia").trim();
-const CLOUD_UPLOAD_PRESET = (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "controlepraia").trim();
+const CLOUD_NAME = "dizfnbdgn";
+const CLOUD_UPLOAD_PRESET = "controlepraia";
 
 function buildCloudinaryErrorMessage(json, status) {
   const base = json?.error?.message || `Erro no upload (status ${status})`;
