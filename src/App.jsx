@@ -318,8 +318,13 @@ async function uploadFoto(file) {
 function getErrorMessage(err) {
   if (!err) return "Erro desconhecido";
   if (typeof err === "string") return err;
+  if (err.code && err.message) return `${err.code}: ${err.message}`;
   if (err.message) return err.message;
   return "Erro desconhecido";
+}
+
+function isAdminUser(email) {
+  return String(email || "").trim().toLowerCase() === ADM_EMAIL.toLowerCase();
 }
 
 const firebaseConfig = {
@@ -349,7 +354,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const isAdmin = user?.email === ADM_EMAIL;
+  const isAdmin = isAdminUser(user?.email);
   const fotoFileRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -374,7 +379,7 @@ export default function App() {
           console.log("[Auth] Usuário autenticado:", {
             uid: u.uid,
             email: u.email,
-            isAdmin: u.email === ADM_EMAIL,
+            isAdmin: isAdminUser(u.email),
           });
           toast.success("Bem-vindo, " + u.email.split("@")[0] + "! ☀️", { id: "login-toast" });
         } else {
@@ -555,7 +560,7 @@ export default function App() {
                 <button disabled={deleting} className={"bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-6 py-3 sm:py-2.5 rounded-2xl font-bold shadow transition-all duration-200 min-h-touch " + (deleting ? "opacity-60 cursor-not-allowed" : "")} onClick={async () => {
                   try {
                     if (deleting) return;
-                    if (!user || user.email !== ADM_EMAIL) {
+                    if (!isAdminUser(user?.email)) {
                       toast.error("Apenas admin pode excluir.");
                       console.error("[DeletePessoa] Usuário sem permissão para excluir:", user?.email);
                       return;
@@ -567,13 +572,9 @@ export default function App() {
                       throw new Error("ID do documento não informado para exclusão");
                     }
 
-                    const docExiste = pessoas.some((p) => p.id === modal.pessoaId);
-                    if (!docExiste) {
-                      throw new Error("Documento não encontrado na lista local");
-                    }
-
+                    const idParaExcluir = modal.pessoaId;
                     setDeleting(true);
-                    await deleteDoc(doc(db, "pessoas", modal.pessoaId));
+                    await deleteDoc(doc(db, "pessoas", idParaExcluir));
 
                     toast.success("Pessoa removida!");
 
@@ -615,7 +616,7 @@ function PessoaCard({ pessoa, db, user, onDelete }) {
   const tipo = pessoa.tipo || "avista";
   const p1 = pessoa.p1 ?? false;
   const p2 = pessoa.p2 ?? false;
-  const isAdmin = user?.email === ADM_EMAIL;
+  const isAdmin = isAdminUser(user?.email);
   const progresso = tipo === "avista" ? (p1 ? 100 : 0) : ((Number(p1) + Number(p2)) / 2) * 100;
   const [editandoNome, setEditandoNome] = useState(false);
   const [nomeEdit, setNomeEdit] = useState(nome);
