@@ -324,7 +324,9 @@ function getErrorMessage(err) {
 }
 
 function isAdminUser(email) {
-  return String(email || "").trim().toLowerCase() === ADM_EMAIL.toLowerCase();
+  return ADM_EMAILS.includes(
+    String(email || "").trim().toLowerCase()
+  );
 }
 
 const firebaseConfig = {
@@ -342,7 +344,10 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 const CONFIG = { valorTotal: 1671, valorPorPessoa: 209, parcela: 104.5 };
-const ADM_EMAIL = "gpiloto35@gmail.com";
+const ADM_EMAILS = [
+  "gpiloto35@gmail.com",
+  "SEUOUTROEMAIL@gmail.com"
+];
 const enviarWhats = async () => {};
 
 export default function App() {
@@ -553,42 +558,47 @@ export default function App() {
       </main>
       <AnimatePresence>
         {modal.open && (
-          <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4" initial={{ opacity: 0 }} exit={{ opacity: 0 }}>
-            <motion.div className="bg-zinc-900 rounded-2xl p-6 sm:p-8 shadow-2xl w-full max-w-sm mx-auto text-center border border-zinc-700" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
+          <motion.div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] px-4" initial={{ opacity: 0 }} exit={{ opacity: 0 }}>
+            <motion.div className="bg-zinc-900 rounded-2xl p-6 sm:p-8 shadow-2xl w-full max-w-sm mx-auto text-center border border-zinc-700 pointer-events-auto" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}>
               <h2 className="text-responsive-lg sm:text-xl font-bold mb-4 sm:mb-6 text-white">Confirmar exclusão?</h2>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-                <button disabled={deleting} className={"bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-6 py-3 sm:py-2.5 rounded-2xl font-bold shadow transition-all duration-200 min-h-touch " + (deleting ? "opacity-60 cursor-not-allowed" : "")} onClick={async () => {
+                <button type="button" disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-bold" onClick={async () => {
+                  console.log("BOTAO EXCLUIR CLICADO");
+                  
+                  if (!modal.pessoaId) {
+                    console.log("SEM ID");
+                    return;
+                  }
+                  
+                  console.log("ID RECEBIDO:", modal.pessoaId);
+                  console.log("USUARIO LOGADO:", user?.email);
+                  
+                  setDeleting(true);
+                  
                   try {
-                    if (deleting) return;
-                    if (!isAdminUser(user?.email)) {
-                      toast.error("Apenas admin pode excluir.");
-                      console.error("[DeletePessoa] Usuário sem permissão para excluir:", user?.email);
-                      return;
-                    }
-
-                    console.log("[DeletePessoa] ID PARA EXCLUIR:", modal.pessoaId);
-
-                    if (!modal.pessoaId) {
-                      throw new Error("ID do documento não informado para exclusão");
-                    }
-
-                    const idParaExcluir = modal.pessoaId;
-                    setDeleting(true);
-                    await deleteDoc(doc(db, "pessoas", idParaExcluir));
-
+                    const ref = doc(db, "pessoas", modal.pessoaId);
+                    console.log("DOC REF:", ref);
+                    
+                    await deleteDoc(ref);
+                    
+                    console.log("DOCUMENTO EXCLUIDO");
                     toast.success("Pessoa removida!");
-
+                    
                     setModal({
                       open: false,
                       pessoaId: null,
                     });
                   } catch (err) {
-                    console.error("[DeletePessoa] ERRO AO EXCLUIR:", err);
-                    toast.error("Erro ao excluir pessoa: " + getErrorMessage(err));
+                    console.error("ERRO AO EXCLUIR:", err);
+                    toast.error(
+                      err?.message || "Erro ao excluir"
+                    );
                   } finally {
                     setDeleting(false);
                   }
-                }}>{deleting ? "Excluindo..." : "Excluir"}</button>
+                }}>
+                  {deleting ? "Excluindo..." : "Excluir"}
+                </button>
                 <button className="bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-500 text-white px-6 py-3 sm:py-2.5 rounded-2xl font-bold shadow transition-all duration-200 min-h-touch" onClick={() => setModal({ open: false, pessoaId: null })}>Cancelar</button>
               </div>
             </motion.div>
